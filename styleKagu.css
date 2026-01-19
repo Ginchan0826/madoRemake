@@ -1,0 +1,296 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --ink: #102027;
+  --muted: #5e6b75;
+  --line: #cfd8dc;
+  --accent: #1565c0;
+  --bg: #f7fafc;
+  --panel: #ffffff;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+/* ヘッダー */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+header .right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ボタンなど */
+button {
+  border: 1px solid var(--accent);
+  background: #fff;
+  color: var(--accent);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+button:hover {
+  background: #e3f2fd;
+}
+
+label.import {
+  border: 1px dashed var(--accent);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-block;
+}
+
+/* レイアウト */
+main {
+  display: grid;
+  grid-template-columns: 320px 1fr 360px;
+  gap: 12px;
+  padding: 12px;
+  min-height: calc(100% - 54px);
+}
+
+aside {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.block {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.block h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.row.mid {
+  justify-content: space-between;
+}
+
+.hint {
+  color: var(--muted);
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+/* 中央ビュー */
+#viewport {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* パーツ一覧・プリセット一覧 共通 */
+.list {
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  background: #fcfeff;
+}
+
+.list .item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-bottom: 1px dashed #eef2f5;
+}
+
+.list .item:last-child {
+  border-bottom: none;
+}
+
+.list .item span.name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* 家具一覧グリッド */
+.furn-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.furn-btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.furn-btn.active {
+  outline: 2px solid var(--accent);
+  background: #eef6ff;
+}
+
+/* 入力 */
+input[type='color'] {
+  width: 40px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+input[type='number'] {
+  width: 120px;
+}
+
+input[type='range'] {
+  flex: 1;
+}
+
+output {
+  min-width: 40px;
+  text-align: right;
+  display: inline-block;
+}
+
+/* CSS2D 寸法ラベル */
+.label-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.dimLabel {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffffcc;
+  border: 1px solid #e0e7ec;
+  border-radius: 8px;
+  padding: 4px 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+  font-weight: 700;
+}
+
+.dimLabel::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 2px solid #e74a3b;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+/* m の文字 */
+.dimLabel .unit {
+  margin-left: 2px;
+  color: #556;
+  opacity: .9;
+}
+
+/* 軸ごとの色 */
+.dimLabel.dim-z::before {
+  border-color: #3498DB;
+}
+
+.dimLabel.dim-y::before {
+  border-color: #2ECC71;
+}
+
+.dimLabel.dim-x::before {
+  border-color: #e74a3b;
+}
+
+/* ライブラリ入力 */
+input#presetName {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* ライブラリ一覧（家具生成側） */
+#presetList .item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-bottom: 1px dashed #eef2f5;
+}
+
+#presetList .item:last-child {
+  border-bottom: none;
+}
+
+#presetList .item .name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* レスポンシブ（幅が狭いときは縦積み） */
+@media (max-width: 1024px) {
+  main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #viewport {
+    min-height: 320px;
+  }
+}
