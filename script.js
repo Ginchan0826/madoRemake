@@ -1,7 +1,4 @@
-/* =========================================================
-   single script.js（script.js を正とした統合版）
-   Part 1
-   ========================================================= */
+console.log("GLTFLoader =", THREE.GLTFLoader);
 
 let accessToken = null;
 let latestJson = null;
