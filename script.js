@@ -1,6 +1,10 @@
 console.log("GLTFLoader =", THREE.GLTFLoader);
 
-let accessToken = null;
+//let accessToken = null;
+if (typeof window.accessToken === "undefined") {
+  window.accessToken = null;
+}
+
 let latestJson = null;
 
 /* Googleログイン */
@@ -14,7 +18,7 @@ function requestAccessToken() {
     client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
     scope: 'https://www.googleapis.com/auth/drive.file',
     callback: (tokenResponse) => {
-      accessToken = tokenResponse.access_token;
+      window.accessToken = tokenResponse.access_token;
       updateFileSelect();
     }
   }).requestAccessToken();
@@ -523,7 +527,7 @@ let raycaster = new THREE.Raycaster();
 let mouse = new THREE.Vector2();
 
 /* loader */
-const gltfLoader = new THREE.GLTFLoader();
+//const gltfLoader = new THREE.GLTFLoader();
 
 /* furniture data */
 const furnitureData = [
@@ -550,6 +554,8 @@ function createFurnitureButtons() {
 
 /* load furniture */
 function loadFurniture(item) {
+    const gltfLoader = new THREE.GLTFLoader();
+    
   gltfLoader.load(item.path, gltf => {
     const model = gltf.scene;
     model.scale.set(item.scale, item.scale, item.scale);
