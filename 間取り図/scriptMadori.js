@@ -385,6 +385,7 @@ function checkCollisions() {
         
         if (selectedBox.intersectsBox(otherBox)) {
             isColliding = true;
+            console.log("衝突検知！相手のクラス:", other.userData.class, "名前:", other.name);
         }
     });
 
