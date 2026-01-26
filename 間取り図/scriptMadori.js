@@ -203,8 +203,11 @@ async function spawnFurnitureFromPreset(preset) {
 
     root.traverse((o) => {
       if (o.isMesh) {
+        o.userData.isObstacle = true;
+        o.userData.class = 'furniture';
         o.castShadow = true;
         o.receiveShadow = true;
+
       }
     });
 
@@ -236,6 +239,7 @@ async function spawnFurnitureFromPreset(preset) {
     });
 
     root.userData.draggable = true;
+    root.userData.isObstacle = true;
     root.userData.baseId = baseId;
     root.userData.label = name;
 
@@ -262,6 +266,7 @@ function addBoxAtCenter(w, h, d, color = 0x2194ce, meta = {}) {
   mesh.position.set(0, (h * UNIT_SCALE) / 2, 0);
 
   mesh.userData.draggable = true;
+  mesh.userData.isObstacle = true;
   mesh.userData.baseId = meta.baseId || 'generic';
   mesh.userData.label = meta.name || '箱';
 
