@@ -1,10 +1,9 @@
 console.log("GLTFLoader =", THREE.GLTFLoader);
 console.log("THREE", THREE);
-console.log("THREE.OrbitControls", THREE.OrbitControls
-);
+console.log("THREE.OrbitControls", THREE.OrbitControls);
 console.log("draw3D", typeof draw3D);
 
-//THREE.OrbitControl
+//latestJson
 
 
 //let accessToken = null;
@@ -29,7 +28,7 @@ function requestAccessToken() {
     client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
     scope: 'https://www.googleapis.com/auth/drive.file',
     callback: (tokenResponse) => {
-      window.accessToke = tokenResponse.access_token;
+      window.accessToken = tokenResponse.access_token;
       updateFileSelect();
     }
   }).requestwindow.accessTok();
@@ -322,7 +321,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* Google Drive 保存 */
   document.getElementById("saveBtn").addEventListener("click", () => {
-    if (!window.accessToke || !window.latestJson
+    if (!window.accessToken || !window.latestJson
 
     ) return alert("ログインまたは解析が必要です");
 
@@ -340,7 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
       method: "POST",
-      headers: new Headers({ Authorization: "Bearer " + window.accessToke
+      headers: new Headers({ Authorization: "Bearer " + window.accessToken
        }),
       body: form
     })
@@ -354,10 +353,10 @@ document.addEventListener("DOMContentLoaded", () => {
   /* Drive 読み込み */
   document.getElementById("loadBtn").addEventListener("click", () => {
     const fileId = fileSelect.value;
-    if (!window.accessToke || !fileId) return alert("ログインまたはファイルを選択してください");
+    if (!window.accessToken || !fileId) return alert("ログインまたはファイルを選択してください");
 
     fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-      headers: new Headers({ Authorization: "Bearer " + window.accessToke
+      headers: new Headers({ Authorization: "Bearer " + window.accessToken
        })
     })
       .then(res => res.json())
@@ -373,13 +372,13 @@ document.addEventListener("DOMContentLoaded", () => {
   /* Drive 削除 */
   document.getElementById("deleteBtn").addEventListener("click", () => {
     const fileId = fileSelect.value;
-    if (!window.accessToke || !fileId) return;
+    if (!window.accessToken || !fileId) return;
 
     if (!confirm("本当に削除しますか？")) return;
 
     fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
       method: "DELETE",
-      headers: new Headers({ Authorization: "Bearer " + window.accessToke
+      headers: new Headers({ Authorization: "Bearer " + window.accessToken
        })
     }).then(() => updateFileSelect());
   });
