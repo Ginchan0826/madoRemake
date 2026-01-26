@@ -7,14 +7,15 @@
   <title>間取り分析＆3D表示</title>
   <link rel="stylesheet" href="style.css" />
 
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/"
-      }
-    }
-  </script>
+  <!-- THREE.js -->
+<script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+
+<!-- OrbitControls -->
+<script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+
+<!-- GLTFLoader -->
+<script src="https://unpkg.com/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -137,7 +138,8 @@
     <div class="appFooter__inner"><span>© まどりめいく</span></div>
   </footer> -->
 
-  <script type="module" src="script.js"></script>
+  <script src="script.js"></script>
+
 </body>
 
 </html>
