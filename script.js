@@ -1,4 +1,3 @@
-
 //let accessToken = null;
 if (typeof window.accessToken === "undefined") {
   window.accessToken = null;
@@ -12,11 +11,11 @@ if (typeof window.latestJson === "undefined") {
 
 /* Googleログイン */
 function handleCredentialResponse(response) {
-  requestwindow.accessToken();
+  requestAccessToken();
 }
 window.handleCredentialResponse = handleCredentialResponse;
 
-function requestaccessToken() {
+function requestAccessToken() {
   google.accounts.oauth2.initTokenClient({
     client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
     scope: 'https://www.googleapis.com/auth/drive.file',
@@ -24,7 +23,7 @@ function requestaccessToken() {
       window.accessToken = tokenResponse.access_token;
       updateFileSelect();
     }
-  }).requestwindow.accessToken();
+  }).requestAccessToken();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -81,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return intersect / union;
   }
 
-  /* 壁補完（Wall ↔ Fusuma のみ） */
+  /* 壁補完(Wall ↔ Fusuma のみ) */
   function fillWallGaps(preds, maxDist = 40) {
     const walls = preds.filter(p => p.class === "wall" || p.class === "fusuma");
     const filled = [];
@@ -210,7 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelector(".left-pane").appendChild(loadingText);
 
   let loadingInterval;
-  /* ★ 3モデル合成処理（IoU完全実装＋base除外＋壁補完＋優先ルール） */
+  /* ★ 3モデル合成処理(IoU完全実装+base除外+壁補完+優先ルール) */
   async function runAllModels(file) {
     const outer = await runRoboflow(API.outer, file);
     const inner = await runRoboflow(API.inner, file);
@@ -290,8 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (mode === "extra") result = await runRoboflow(API.extra, selectedFile);
       else result = await runAllModels(selectedFile);
 
-      window.latestJson
- = result;
+      window.latestJson = result;
       resultPre.textContent = JSON.stringify(result, null, 2);
 
       openContainer(resultContainer);
@@ -314,17 +312,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* Google Drive 保存 */
   document.getElementById("saveBtn").addEventListener("click", () => {
-    if (!window.accessToken || !window.latestJson
-
-    ) return alert("ログインまたは解析が必要です");
+    if (!window.accessToken || !window.latestJson) return alert("ログインまたは解析が必要です");
 
     const filename = filenameInput.value.trim();
     if (!filename) return alert("保存名を入力してください");
 
     const metadata = { name: `${filename}.json`, mimeType: "application/json" };
-    const file = new Blob([JSON.stringify(window.latestJson
-
-    )], { type: "application/json" });
+    const file = new Blob([JSON.stringify(window.latestJson)], { type: "application/json" });
 
     const form = new FormData();
     form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
@@ -332,8 +326,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
       method: "POST",
-      headers: new Headers({ Authorization: "Bearer " + window.accessToken
-       }),
+      headers: new Headers({ Authorization: "Bearer " + window.accessToken }),
       body: form
     })
       .then(() => {
@@ -349,13 +342,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!window.accessToken || !fileId) return alert("ログインまたはファイルを選択してください");
 
     fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-      headers: new Headers({ Authorization: "Bearer " + window.accessToken
-       })
+      headers: new Headers({ Authorization: "Bearer " + window.accessToken })
     })
       .then(res => res.json())
       .then(data => {
-        window.latestJson
- = data;
+        window.latestJson = data;
         resultPre.textContent = JSON.stringify(data, null, 2);
         draw3D(data.predictions, data.image.width, data.image.height);
       })
@@ -367,12 +358,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const fileId = fileSelect.value;
     if (!window.accessToken || !fileId) return;
 
-    if (!confirm("本当に削除しますか？")) return;
+    if (!confirm("本当に削除しますか?")) return;
 
     fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
       method: "DELETE",
-      headers: new Headers({ Authorization: "Bearer " + window.accessToken
-       })
+      headers: new Headers({ Authorization: "Bearer " + window.accessToken })
     }).then(() => updateFileSelect());
   });
 
@@ -380,7 +370,7 @@ document.addEventListener("DOMContentLoaded", () => {
 }); // DOMContentLoaded end
 
   /* =========================================================
-     3D描画（床を base から生成、オブジェクト高さ/厚み調整）
+     3D描画(床を base から生成、オブジェクト高さ/厚み調整)
      ========================================================= */
   function draw3D(predictions, imageWidth, imageHeight) {
     predictions = predictions || [];
@@ -413,7 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     /* controls */
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer3D.domElement);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2;
 
@@ -440,7 +430,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "outer"
     ];
 
-    /* ===== 床生成（base優先） ===== */
+    /* ===== 床生成(base優先) ===== */
     const baseObj = predictions.find(p => p.class === "base");
 
     if (baseObj) {
@@ -533,7 +523,7 @@ document.addEventListener("DOMContentLoaded", () => {
     animate();
 
     function containerAspect() {
-    　const container = document.getElementById("three-container");
+      const container = document.getElementById("three-container");
       const w = container.clientWidth || 800;
       const h = container.clientHeight || 600;
       return w / h;
@@ -542,7 +532,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 /* =========================================================
-   家具配置・ドラッグ操作（scriptMadori.js 統合部）
+   家具配置・ドラッグ操作(scriptMadori.js 統合部)
    ========================================================= */
 
 let furnitureList = [];
@@ -578,7 +568,7 @@ function createFurnitureButtons() {
 
 /* load furniture */
 function loadFurniture(item) {
-    const gltfLoader = new GLTFLoader();
+    const gltfLoader = new THREE.GLTFLoader();
     
   gltfLoader.load(item.path, gltf => {
     const model = gltf.scene;
@@ -629,35 +619,36 @@ function onMouseUp() {
 }
 
 function updateMouse(event) {
-  const rect = renderer.domElement.getBoundingClientRect();
+  const rect = renderer3D.domElement.getBoundingClientRect();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 }
 
 /* events bind */
 function bindFurnitureEvents() {
-  renderer.domElement.addEventListener("mousedown", onMouseDown);
-  renderer.domElement.addEventListener("mousemove", onMouseMove);
-  renderer.domElement.addEventListener("mouseup", onMouseUp);
+  if (!renderer3D || !renderer3D.domElement) return;
+  renderer3D.domElement.addEventListener("mousedown", onMouseDown);
+  renderer3D.domElement.addEventListener("mousemove", onMouseMove);
+  renderer3D.domElement.addEventListener("mouseup", onMouseUp);
 }
 
 /* ===== scene references ===== */
 let currentScene = null;
 let currentCamera = null;
-let renderer = null;
+let renderer3D = null;
 
 /* scene受け取り */
 function registerThreeContext(scene, camera, rendererInstance) {
   currentScene = scene;
   currentCamera = camera;
-  renderer = rendererInstance;
+  renderer3D = rendererInstance;
 
   bindFurnitureEvents();
   createFurnitureButtons();
 }
 
 /* =========================================================
-   draw3D 拡張（家具連携）
+   draw3D 拡張(家具連携)
    ========================================================= */
 
 const _originalDraw3D = draw3D;
@@ -671,7 +662,7 @@ draw3D = function(predictions, w, h) {
 
   const scene = canvas.__threeObj?.scene || null;
   const camera = canvas.__threeObj?.camera || null;
-  const rendererInstance = canvas.__threeObj?.renderer || null;
+  const rendererInstance = canvas.__threeObj?.renderer3D || null;
 
   if (scene && camera && rendererInstance) {
     registerThreeContext(scene, camera, rendererInstance);
