@@ -1,274 +1,651 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
-/**
- * 【完全復元版】script.js
- * 簡略化を一切排除し、以前の「厚みのある壁」「隙間補完」「複雑な色分け」を
- * 500-800行相当のロジックでそのまま合体させました。
- */
+/* =========================================================
+   single script.js（script.js を正とした統合版）
+   Part 1
+   ========================================================= */
 
 let accessToken = null;
 let latestJson = null;
 
-const FURN_STORAGE_KEY = 'madomake_furniturePresets';
-const GLB_PATHS = { desk: '机.glb', sofa: 'ソファ.glb' };
-const gltfLoader = new GLTFLoader();
+/* Googleログイン */
+function handleCredentialResponse(response) {
+  requestAccessToken();
+}
+window.handleCredentialResponse = handleCredentialResponse;
 
-let scene = null, camera = null, renderer = null, controls = null;
-let raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
-let dragPlane = new THREE.Plane(), dragOffset = new THREE.Vector3(), dragIntersectPoint = new THREE.Vector3();
-let draggableObjects = [], selectedObject = null, isDragging = false;
-let placeStatusEl = null, libraryListEl = null, fileSelectEl = null;
-
-const API = {
-  outer: "https://detect.roboflow.com/floor-plan-japan-base-6xuaz/2?api_key=E0aoexJvBDgvE3nb1jkc",
-  inner: "https://detect.roboflow.com/floor-plan-japan/7?api_key=E0aoexJvBDgvE3nb1jkc",
-  extra: "https://detect.roboflow.com/floor-plan-japan-2-menv0/1?api_key=E0aoexJvBDgvE3nb1jkc&confidence=0.25"
-};
-
-// 以前のバージョンにあった詳細な色設定をそのまま復元
-const classColors = {
-  wall: 0x999999, room: 0xffffff, kitchen: 0xf5f5dc, bathroom: 0xadd8e6,
-  toilet: 0xffefd5, entrance: 0xd2b48c, balcony: 0xe0e0e0, door: 0x8b4513,
-  "glass door": 0x87cefa, window: 0x1e90ff, closet: 0xffa500, fusuma: 0xda70d6,
-  base: 0xeeeeee, outer: 0xeeeeee
-};
-const ignoreList = ['left side', 'right side', 'under side', 'top side'];
-
-/* ========== Google Drive 連携 ========== */
-window.handleCredentialResponse = function(response) { requestAccessToken(); };
 function requestAccessToken() {
   google.accounts.oauth2.initTokenClient({
     client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
     scope: 'https://www.googleapis.com/auth/drive.file',
-    callback: (t) => { accessToken = t.access_token; updateFileSelect(); }
+    callback: (tokenResponse) => {
+      accessToken = tokenResponse.access_token;
+      updateFileSelect();
+    }
   }).requestAccessToken();
 }
 
-/* ========== Roboflow解析 (以前の IoU・隙間補完・優先ルールを完全再現) ========== */
-function calcIoU(a, b) {
-  const ax1 = a.x - a.width/2, ay1 = a.y - a.height/2, ax2 = a.x + a.width/2, ay2 = a.y + a.height/2;
-  const bx1 = b.x - b.width/2, by1 = b.y - b.height/2, bx2 = b.x + b.width/2, by2 = b.y + b.height/2;
-  const iX1 = Math.max(ax1, bx1), iY1 = Math.max(ay1, by1), iX2 = Math.min(ax2, bx2), iY2 = Math.min(ay2, by2);
-  if (iX2 < iX1 || iY2 < iY1) return 0;
-  const iArea = (iX2 - iX1) * (iY2 - iY1);
-  return iArea / (a.width * a.height + b.width * b.height - iArea);
-}
+document.addEventListener("DOMContentLoaded", () => {
+  const uploadHeader = document.getElementById("upload-header");
+  const uploadContainer = document.getElementById("upload-container");
+  const resultHeader = document.getElementById("result-header");
+  const resultContainer = document.getElementById("result-container");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const previewImg = document.getElementById("preview");
+  const resultPre = document.getElementById("result");
 
-// 以前のバージョンにあった「壁と襖の隙間を埋める力技ロジック」
-function fillWallGaps(preds, maxDist = 40) {
-  const walls = preds.filter(p => p.class === "wall" || p.class === "fusuma");
-  const filled = [];
-  for (let i = 0; i < walls.length; i++) {
-    for (let j = i + 1; j < walls.length; j++) {
-      const a = walls[i], b = walls[j];
-      const isPair = (a.class === "wall" && b.class === "fusuma") || (a.class === "fusuma" && b.class === "wall");
-      if (!isPair) continue;
-      const d = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
-      if (d < maxDist) {
-        filled.push({ class: "wall", x: (a.x + b.x)/2, y: (a.y + b.y)/2, width: Math.abs(a.x - b.x) + 4, height: Math.abs(a.y - b.y) + 4, confidence: 0.99 });
+  const filenameInput = document.getElementById("filenameInput");
+  const fileSelect = document.getElementById("fileSelect");
+
+  let selectedFile = null;
+
+  /* モデルURLまとめ */
+  const API = {
+    outer: "https://detect.roboflow.com/floor-plan-japan-base-6xuaz/2?api_key=E0aoexJvBDgvE3nb1jkc",
+    inner: "https://detect.roboflow.com/floor-plan-japan/7?api_key=E0aoexJvBDgvE3nb1jkc",
+    extra: "https://detect.roboflow.com/floor-plan-japan-2-menv0/1?api_key=E0aoexJvBDgvE3nb1jkc&confidence=0.25"
+  };
+
+  /* 共通 Roboflow 呼び出し関数 */
+  async function runRoboflow(url, file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(url, { method: "POST", body: formData });
+    return await res.json();
+  }
+
+  /* IoU 計算 */
+  function calcIoU(a, b) {
+    const ax1 = a.x - a.width / 2;
+    const ax2 = a.x + a.width / 2;
+    const ay1 = a.y - a.height / 2;
+    const ay2 = a.y + a.height / 2;
+
+    const bx1 = b.x - b.width / 2;
+    const bx2 = b.x + b.width / 2;
+    const by1 = b.y - b.height / 2;
+    const by2 = b.y + b.height / 2;
+
+    const interX = Math.max(0, Math.min(ax2, bx2) - Math.max(ax1, bx1));
+    const interY = Math.max(0, Math.min(ay2, by2) - Math.max(ay1, by1));
+    const intersect = interX * interY;
+
+    const areaA = a.width * a.height;
+    const areaB = b.width * b.height;
+    const union = areaA + areaB - intersect;
+
+    if (union <= 0) return 0;
+    return intersect / union;
+  }
+
+  /* 壁補完（Wall ↔ Fusuma のみ） */
+  function fillWallGaps(preds, maxDist = 40) {
+    const walls = preds.filter(p => p.class === "wall" || p.class === "fusuma");
+    const filled = [];
+
+    for (let i = 0; i < walls.length; i++) {
+      for (let j = i + 1; j < walls.length; j++) {
+        const a = walls[i];
+        const b = walls[j];
+
+        const isPair =
+          (a.class === "wall" && b.class === "fusuma") ||
+          (a.class === "fusuma" && b.class === "wall");
+
+        if (!isPair) continue;
+
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < maxDist) {
+          const midX = (a.x + b.x) / 2;
+          const midY = (a.y + b.y) / 2;
+
+          const newWidth = Math.max(4, Math.abs(a.x - b.x) + 4);
+          const newHeight = Math.max(4, Math.abs(a.y - b.y) + 4);
+
+          filled.push({
+            class: "wall",
+            x: midX,
+            y: midY,
+            width: newWidth,
+            height: newHeight,
+            confidence: 0.99
+          });
+        }
       }
     }
+    return filled;
   }
-  return filled;
-}
 
-function applyPriority(preds) {
-  const res = [];
-  preds.forEach(p => {
-    let skip = false;
-    for (const other of preds) {
-      if (p === other || calcIoU(p, other) < 0.15) continue;
-      if ((p.class === "closet" || p.class === "door") && other.class === "wall") { skip = true; break; }
-      if (p.class === "wall" && (other.class === "window" || other.class === "glass door")) { skip = true; break; }
+  /* 重なり優先ルール */
+  function applyPriority(preds) {
+    const result = [];
+    const items = preds.slice();
+
+    items.forEach(p => {
+      let skip = false;
+
+      for (let k = 0; k < items.length; k++) {
+        const other = items[k];
+        if (p === other) continue;
+
+        if (calcIoU(p, other) < 0.15) continue;
+
+        if ((p.class === "closet" || p.class === "door") && other.class === "wall") {
+          skip = true;
+          break;
+        }
+
+        if (p.class === "wall" && (other.class === "window" || other.class === "glass door")) {
+          skip = true;
+          break;
+        }
+
+        if (p.class === other.class) {
+          const iou = calcIoU(p, other);
+          if (iou > 0.6) {
+            if ((p.confidence || 0) < (other.confidence || 0)) {
+              skip = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!skip) result.push(p);
+    });
+
+    return result;
+  }
+
+  /* 折りたたみUI */
+  function openContainer(c) {
+    c.classList.remove("collapsed");
+    c.classList.add("expanded");
+  }
+  function closeContainer(c) {
+    c.classList.remove("expanded");
+    c.classList.add("collapsed");
+  }
+  function toggleExclusive(openElem, closeElem) {
+    if (openElem.classList.contains("expanded")) {
+      closeContainer(openElem);
+    } else {
+      openContainer(openElem);
+      closeContainer(closeElem);
     }
-    if (!skip) res.push(p);
+  }
+
+  uploadHeader.addEventListener("click", () => {
+    toggleExclusive(uploadContainer, resultContainer);
   });
-  return res;
-}
 
-async function runAllModels(file) {
-  const fetchR = async (url) => {
-    const fd = new FormData(); fd.append("file", file);
-    return (await fetch(url, { method: "POST", body: fd })).json();
-  };
-  const [o, i, e] = await Promise.all([fetchR(API.outer), fetchR(API.inner), fetchR(API.extra)]);
-  const ob = o.predictions.find(p => p.class === "base");
-  let allP = [];
-  if (ob) {
-    const isIn = (p) => (p.x > ob.x - ob.width/2 && p.x < ob.x + ob.width/2 && p.y > ob.y - ob.height/2 && p.y < ob.y + ob.height/2);
-    const fi = (i.predictions || []).filter(p => isIn(p) && p.class !== "base");
-    const fe = (e.predictions || []).filter(p => isIn(p) && p.class !== "base" && !fi.some(ii => p.class === ii.class && calcIoU(p, ii) > 0.4));
-    allP = [ob, ...fi, ...fe];
-  } else { allP = i.predictions || []; }
-  allP.push(...fillWallGaps(allP));
-  return { image: o.image, predictions: applyPriority(allP) };
-}
+  resultHeader.addEventListener("click", () => {
+    toggleExclusive(resultContainer, uploadContainer);
+  });
 
-/* ========== 3D描画 (「高さ」と「立体感」を完全復旧) ========== */
-function draw3D(preds, imgW, imgH) {
-  const container = document.getElementById('three-container');
-  if (renderer) { renderer.dispose(); container.innerHTML = ''; }
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(container.clientWidth, container.clientHeight);
-  container.appendChild(renderer.domElement);
+  /* 画像プレビュー */
+  document.getElementById("imageInput").addEventListener("change", (e) => {
+    selectedFile = e.target.files[0];
+    if (!selectedFile) return;
 
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf6f7fb);
-  camera = new THREE.PerspectiveCamera(75, container.clientWidth/container.clientHeight, 0.1, 1000);
-  controls = new OrbitControls(camera, renderer.domElement);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      previewImg.src = ev.target.result;
+      openContainer(uploadContainer);
+      closeContainer(resultContainer);
+    };
+    reader.readAsDataURL(selectedFile);
+  });
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-  sun.position.set(5, 10, 7); scene.add(sun);
+  /* ローディング表示 */
+  const loadingText = document.createElement("div");
+  loadingText.style.color = "#008cff";
+  loadingText.style.fontWeight = "bold";
+  document.querySelector(".left-pane").appendChild(loadingText);
 
-  const scale = 0.05; // 以前のバージョンと同じスケール感
-  const wallsGroup = new THREE.Group();
+  let loadingInterval;
+  /* ★ 3モデル合成処理（IoU完全実装＋base除外＋壁補完＋優先ルール） */
+  async function runAllModels(file) {
+    const outer = await runRoboflow(API.outer, file);
+    const inner = await runRoboflow(API.inner, file);
+    const extra = await runRoboflow(API.extra, file);
 
-  preds.forEach(p => {
-    if (ignoreList.includes(p.class)) return;
-    const isFloor = p.class === "base" || p.class === "outer";
-    
-    // 平面にならないように高さを設定 (床以外は2.4m相当)
-    const hValue = isFloor ? 0.01 : 2.4;
-    
-    // 物体の中心点とサイズをRoboflowの結果から計算
-    const geo = new THREE.BoxGeometry(p.width * scale, hValue * scale, p.height * scale);
-    const mat = new THREE.MeshLambertMaterial({ color: classColors[p.class] || 0xffffff });
-    const mesh = new THREE.Mesh(geo, mat);
+    const outerBase = outer?.predictions?.find(p => p.class === "base") || null;
 
-    // 座標計算 (画像の中心を原点にするロジックを復元)
-    mesh.position.set(
-      (p.x - imgW/2) * scale,
-      (hValue * scale) / 2, // 地面に接するように高さを半分上げる
-      -(p.y - imgH/2) * scale
+    if (!outerBase) {
+      return {
+        image: inner.image || outer.image || extra.image || { width: 100, height: 100 },
+        predictions: (inner.predictions || []).filter(p => p.class !== "base" && p.class !== "outer")
+      };
+    }
+
+    const outerBox = outerBase;
+
+    function isInside(pred) {
+      return (
+        pred.x > outerBox.x - outerBox.width / 2 &&
+        pred.x < outerBox.x + outerBox.width / 2 &&
+        pred.y > outerBox.y - outerBox.height / 2 &&
+        pred.y < outerBox.y + outerBox.height / 2
+      );
+    }
+
+    const filteredInner = (inner.predictions || []).filter(
+      p => isInside(p) && p.class !== "base" && p.class !== "outer"
+    );
+    const filteredExtra = (extra.predictions || []).filter(
+      p => isInside(p) && p.class !== "base" && p.class !== "outer"
     );
 
-    if (isFloor) scene.add(mesh); else wallsGroup.add(mesh);
-  });
-  scene.add(wallsGroup);
+    let finalPreds = [outerBox, ...filteredInner];
 
-  // カメラのオートフィットロジック
-  const box = new THREE.Box3().setFromObject(wallsGroup.children.length ? wallsGroup : scene);
-  const center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.z);
-  camera.position.set(center.x, maxDim * 1.5, center.z + maxDim);
-  controls.target.copy(center);
-  controls.update();
+    filteredExtra.forEach(e => {
+      let duplicate = false;
+      for (const ii of filteredInner) {
+        if (e.class === ii.class && calcIoU(e, ii) > 0.4) {
+          duplicate = true;
+          break;
+        }
+      }
+      if (!duplicate) finalPreds.push(e);
+    });
 
-  renderer.domElement.addEventListener('pointerdown', onPointerDown);
-  renderer.domElement.addEventListener('pointermove', onPointerMove);
-  renderer.domElement.addEventListener('pointerup', onPointerUp);
-  renderer.domElement.addEventListener('dblclick', e => selectObject(pickObject(e)));
+    finalPreds.push(...fillWallGaps(finalPreds, 40));
+    finalPreds = applyPriority(finalPreds);
 
-  (function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); })();
-}
-
-/* ========== 家具操作・ライブラリ (省略なしの全統合) ========== */
-async function spawnFurniture(preset) {
-  if (!scene) return alert('先に分析してください');
-  try {
-    const gltf = await gltfLoader.loadAsync(GLB_PATHS[preset.baseId || 'desk']);
-    const model = gltf.scene, curSize = new THREE.Vector3();
-    new THREE.Box3().setFromObject(model).getSize(curSize);
-    if (preset.size) model.scale.set(preset.size.x/curSize.x, preset.size.y/curSize.y, preset.size.z/curSize.z);
-    model.traverse(o => { if (o.isMesh && preset.color) { o.material = o.material.clone(); o.material.color.set(preset.color); } });
-    model.userData.draggable = true; model.userData.label = preset.name;
-    scene.add(model); draggableObjects.push(model); selectObject(model);
-  } catch (e) { alert('モデル読み込み失敗'); }
-}
-
-function pickObject(e) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointer.set(((e.clientX-rect.left)/rect.width)*2-1, -((e.clientY-rect.top)/rect.height)*2+1);
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(draggableObjects, true);
-  if (hits.length > 0) {
-    let o = hits[0].object; while(o.parent && o.parent !== scene) o = o.parent;
-    return o;
+    return {
+      image: outer.image,
+      predictions: finalPreds
+    };
   }
-  return null;
-}
 
-function onPointerDown(e) {
-  const o = pickObject(e);
-  if (o && o === selectedObject) {
-    isDragging = true; controls.enabled = false;
-    dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0,1,0), o.position);
-    dragOffset.subVectors(o.position, raycaster.ray.intersectPlane(dragPlane, dragIntersectPoint));
-  }
-}
+  /* ★ メイン解析ボタン */
+  analyzeBtn.addEventListener("click", async () => {
+    if (!selectedFile) {
+      alert("画像を選択してください");
+      return;
+    }
 
-function onPointerMove(e) {
-  if (!isDragging || !selectedObject) return;
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointer.set(((e.clientX-rect.left)/rect.width)*2-1, -((e.clientY-rect.top)/rect.height)*2+1);
-  raycaster.setFromCamera(pointer, camera);
-  if (raycaster.ray.intersectPlane(dragPlane, dragIntersectPoint)) {
-    selectedObject.position.x = dragIntersectPoint.x + dragOffset.x;
-    selectedObject.position.z = dragIntersectPoint.z + dragOffset.z;
-  }
-}
+    analyzeBtn.disabled = true;
+    loadingText.textContent = "分析中";
+    let dot = 0;
 
-function onPointerUp() { isDragging = false; controls.enabled = true; }
-function selectObject(o) {
-  selectedObject = o;
-  placeStatusEl.textContent = o ? `選択中：${o.userData.label}` : '未選択';
-}
+    loadingInterval = setInterval(() => {
+      dot = (dot + 1) % 4;
+      loadingText.textContent = "分析中" + ".".repeat(dot);
+    }, 500);
 
-/* ========== 初期化・アニメーション ========== */
-document.addEventListener("DOMContentLoaded", () => {
-  placeStatusEl = document.getElementById('placeStatus');
-  libraryListEl = document.getElementById('libraryList');
-  fileSelectEl = document.getElementById('fileSelect');
-  
-  const loadingText = document.createElement('div');
-  loadingText.style.cssText = "color: #008cff; font-weight: bold; margin-top: 10px;";
-  document.querySelector('.left-pane').appendChild(loadingText);
-
-  document.getElementById("analyzeBtn").onclick = async () => {
-    const fInput = document.getElementById("imageInput");
-    if (!fInput.files[0]) return alert("画像を選んでください");
-    
-    const btn = document.getElementById("analyzeBtn");
-    btn.disabled = true;
-    loadingText.textContent = '分析中';
-    let dots = 0;
-    const interval = setInterval(() => { dots = (dots + 1) % 4; loadingText.textContent = '分析中' + '.'.repeat(dots); }, 500);
+    const mode = document.getElementById("modelSelector")?.value || "all";
 
     try {
-      const res = await runAllModels(fInput.files[0]);
-      latestJson = res;
-      draw3D(res.predictions, res.image.width, res.image.height);
-      clearInterval(interval); loadingText.textContent = '分析完了！';
+      let result;
+      if (mode === "outer") result = await runRoboflow(API.outer, selectedFile);
+      else if (mode === "inner") result = await runRoboflow(API.inner, selectedFile);
+      else if (mode === "extra") result = await runRoboflow(API.extra, selectedFile);
+      else result = await runAllModels(selectedFile);
+
+      latestJson = result;
+      resultPre.textContent = JSON.stringify(result, null, 2);
+
+      openContainer(resultContainer);
+      closeContainer(uploadContainer);
+
+      draw3D(
+        result.predictions,
+        result.image?.width || 100,
+        result.image?.height || 100
+      );
     } catch (e) {
-      clearInterval(interval); loadingText.textContent = 'エラー発生';
       console.error(e);
-    } finally { btn.disabled = false; }
-  };
+      alert("解析エラー");
+    } finally {
+      clearInterval(loadingInterval);
+      loadingText.textContent = "";
+      analyzeBtn.disabled = false;
+    }
+  });
 
-  const renderLib = () => {
-    const raw = localStorage.getItem(FURN_STORAGE_KEY);
-    const items = raw ? (JSON.parse(raw).items || []) : [];
-    libraryListEl.innerHTML = items.length ? '' : '<p>家具がありません</p>';
-    items.forEach(i => {
-      const b = document.createElement('button'); b.className = 'libItemBtn';
-      b.textContent = i.name; b.onclick = () => spawnFurniture(i);
-      libraryListEl.appendChild(b);
+  /* Google Drive 保存 */
+  document.getElementById("saveBtn").addEventListener("click", () => {
+    if (!accessToken || !latestJson) return alert("ログインまたは解析が必要です");
+
+    const filename = filenameInput.value.trim();
+    if (!filename) return alert("保存名を入力してください");
+
+    const metadata = { name: `${filename}.json`, mimeType: "application/json" };
+    const file = new Blob([JSON.stringify(latestJson)], { type: "application/json" });
+
+    const form = new FormData();
+    form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+    form.append("file", file);
+
+    fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+      method: "POST",
+      headers: new Headers({ Authorization: "Bearer " + accessToken }),
+      body: form
+    })
+      .then(() => {
+        alert("保存完了");
+        updateFileSelect();
+      })
+      .catch(() => alert("保存失敗"));
+  });
+
+  /* Drive 読み込み */
+  document.getElementById("loadBtn").addEventListener("click", () => {
+    const fileId = fileSelect.value;
+    if (!accessToken || !fileId) return alert("ログインまたはファイルを選択してください");
+
+    fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: new Headers({ Authorization: "Bearer " + accessToken })
+    })
+      .then(res => res.json())
+      .then(data => {
+        latestJson = data;
+        resultPre.textContent = JSON.stringify(data, null, 2);
+        draw3D(data.predictions, data.image.width, data.image.height);
+      })
+      .catch(() => alert("読み込み失敗"));
+  });
+
+  /* Drive 削除 */
+  document.getElementById("deleteBtn").addEventListener("click", () => {
+    const fileId = fileSelect.value;
+    if (!accessToken || !fileId) return;
+
+    if (!confirm("本当に削除しますか？")) return;
+
+    fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+      method: "DELETE",
+      headers: new Headers({ Authorization: "Bearer " + accessToken })
+    }).then(() => updateFileSelect());
+  });
+  /* =========================================================
+     3D描画（床を base から生成、オブジェクト高さ/厚み調整）
+     ========================================================= */
+  function draw3D(predictions, imageWidth, imageHeight) {
+    predictions = predictions || [];
+
+    /* scene */
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+
+    /* camera */
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      containerAspect(),
+      0.1,
+      1000
+    );
+    camera.position.set(5, 5, 5);
+
+    /* renderer */
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const container = document.getElementById("three-container");
+    container.innerHTML = "";
+    renderer.setSize(container.clientWidth, container.clientHeight || 600);
+    renderer.setClearColor(0xffffff, 1);
+    container.appendChild(renderer.domElement);
+
+    /* controls */
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI / 2;
+
+    /* scale */
+    const scale = 0.01;
+
+    /* colors */
+    const colors = {
+      wall: 0x999999,
+      door: 0x8b4513,
+      "glass door": 0x87cefa,
+      window: 0x1e90ff,
+      closet: 0xffa500,
+      fusuma: 0xda70d6
+    };
+
+    /* ignore list */
+    const ignore = [
+      "left side",
+      "right side",
+      "under side",
+      "top side",
+      "base",
+      "outer"
+    ];
+
+    /* ===== 床生成（base優先） ===== */
+    const baseObj = predictions.find(p => p.class === "base");
+
+    if (baseObj) {
+      const floorGeo = new THREE.PlaneGeometry(
+        baseObj.width * scale,
+        baseObj.height * scale
+      );
+      const floorMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.x = (baseObj.x - imageWidth / 2) * scale;
+      floor.position.z = -(baseObj.y - imageHeight / 2) * scale;
+      floor.position.y = 0;
+      scene.add(floor);
+    } else {
+      const floorGeo = new THREE.PlaneGeometry(
+        imageWidth * scale,
+        imageHeight * scale
+      );
+      const floorMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+    }
+
+    /* base除外 */
+    let drawPreds = predictions.filter(
+      p => p.class !== "base" && p.class !== "outer"
+    );
+
+    /* 高さ・厚み調整 */
+    drawPreds.forEach(pred => {
+      if (ignore.includes(pred.class)) return;
+
+      let thicknessY = 0.5;
+      let extraZ = 0;
+
+      if (pred.class === "closet" || pred.class === "door") {
+        thicknessY = 0.35;
+      }
+
+      if (pred.class === "window" || pred.class === "glass door") {
+        thicknessY = 0.6;
+        extraZ = 0.02 / scale;
+      }
+
+      pred._thicknessY = thicknessY;
+      pred._extraZ = extraZ;
     });
-  };
-  renderLib();
-  window.addEventListener('storage', (e) => { if (e.key === FURN_STORAGE_KEY) renderLib(); });
-});
 
-async function updateFileSelect() {
-  if (!accessToken) return;
-  const res = await fetch("https://www.googleapis.com/drive/v3/files?q=mimeType='application/json'", { headers: { Authorization: `Bearer ${accessToken}` } });
-  const data = await res.json();
-  fileSelectEl.innerHTML = '<option value="">読み込むファイルを選択</option>';
-  (data.files || []).forEach(f => {
-    const opt = document.createElement('option'); opt.value = f.id; opt.textContent = f.name;
-    fileSelectEl.appendChild(opt);
+    drawPreds = applyPriority(drawPreds);
+
+    /* メッシュ生成 */
+    drawPreds.forEach(pred => {
+      if (ignore.includes(pred.class)) return;
+
+      const thicknessY = pred._thicknessY ?? 0.5;
+      const extraZ = pred._extraZ ?? 0;
+
+      const width = pred.width * scale;
+      const depth = pred.height * scale + extraZ * scale;
+
+      const geo = new THREE.BoxGeometry(width, thicknessY, depth);
+      const mat = new THREE.MeshLambertMaterial({
+        color: colors[pred.class] || 0xffffff
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+
+      mesh.position.x = (pred.x - imageWidth / 2) * scale;
+      mesh.position.y = thicknessY / 2;
+      mesh.position.z = -(pred.y - imageHeight / 2) * scale;
+
+      scene.add(mesh);
+    });
+
+    /* lighting */
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+    scene.add(new THREE.AmbientLight(0x404040));
+
+    /* animate */
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    function containerAspect() {
+      const w = container.clientWidth || 800;
+      const h = container.clientHeight || 600;
+      return w / h;
+    }
+  }
+
+}); // DOMContentLoaded end
+/* =========================================================
+   家具配置・ドラッグ操作（scriptMadori.js 統合部）
+   ========================================================= */
+
+let furnitureList = [];
+let selectedFurniture = null;
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+
+/* loader */
+const gltfLoader = new THREE.GLTFLoader();
+
+/* furniture data */
+const furnitureData = [
+  { name: "bed", path: "models/bed.glb", scale: 0.01 },
+  { name: "desk", path: "models/desk.glb", scale: 0.01 },
+  { name: "chair", path: "models/chair.glb", scale: 0.01 },
+  { name: "sofa", path: "models/sofa.glb", scale: 0.01 }
+];
+
+/* UI生成 */
+function createFurnitureButtons() {
+  const container = document.getElementById("furniture-buttons");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  furnitureData.forEach(item => {
+    const btn = document.createElement("button");
+    btn.textContent = item.name;
+    btn.addEventListener("click", () => loadFurniture(item));
+    container.appendChild(btn);
   });
 }
+
+/* load furniture */
+function loadFurniture(item) {
+  gltfLoader.load(item.path, gltf => {
+    const model = gltf.scene;
+    model.scale.set(item.scale, item.scale, item.scale);
+    model.position.set(0, 0, 0);
+
+    model.traverse(obj => {
+      if (obj.isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+
+    furnitureList.push(model);
+    currentScene.add(model);
+  });
+}
+
+/* mouse events */
+function onMouseDown(event) {
+  updateMouse(event);
+  raycaster.setFromCamera(mouse, currentCamera);
+
+  const intersects = raycaster.intersectObjects(furnitureList, true);
+  if (intersects.length > 0) {
+    selectedFurniture = intersects[0].object.parent;
+  }
+}
+
+function onMouseMove(event) {
+  if (!selectedFurniture) return;
+
+  updateMouse(event);
+  raycaster.setFromCamera(mouse, currentCamera);
+
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const intersectPoint = new THREE.Vector3();
+  raycaster.ray.intersectPlane(plane, intersectPoint);
+
+  if (intersectPoint) {
+    selectedFurniture.position.x = intersectPoint.x;
+    selectedFurniture.position.z = intersectPoint.z;
+  }
+}
+
+function onMouseUp() {
+  selectedFurniture = null;
+}
+
+function updateMouse(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+/* events bind */
+function bindFurnitureEvents() {
+  renderer.domElement.addEventListener("mousedown", onMouseDown);
+  renderer.domElement.addEventListener("mousemove", onMouseMove);
+  renderer.domElement.addEventListener("mouseup", onMouseUp);
+}
+
+/* ===== scene references ===== */
+let currentScene = null;
+let currentCamera = null;
+let renderer = null;
+
+/* scene受け取り */
+function registerThreeContext(scene, camera, rendererInstance) {
+  currentScene = scene;
+  currentCamera = camera;
+  renderer = rendererInstance;
+
+  bindFurnitureEvents();
+  createFurnitureButtons();
+}
+
+/* =========================================================
+   draw3D 拡張（家具連携）
+   ========================================================= */
+
+const _originalDraw3D = draw3D;
+draw3D = function(predictions, w, h) {
+  _originalDraw3D(predictions, w, h);
+
+  /* scene / camera / renderer を取得 */
+  const container = document.getElementById("three-container");
+  const canvas = container.querySelector("canvas");
+  if (!canvas) return;
+
+  const scene = canvas.__threeObj?.scene || null;
+  const camera = canvas.__threeObj?.camera || null;
+  const rendererInstance = canvas.__threeObj?.renderer || null;
+
+  if (scene && camera && rendererInstance) {
+    registerThreeContext(scene, camera, rendererInstance);
+  }
+};
