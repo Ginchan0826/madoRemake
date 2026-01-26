@@ -403,7 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     /* controls */
-    const controls = new THREE.OrbitControls(camera, renderer3D.domElement);
+    const controls = new OrbitControls(camera, renderer3D.domElement);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2;
 
@@ -568,7 +568,7 @@ function createFurnitureButtons() {
 
 /* load furniture */
 function loadFurniture(item) {
-    const gltfLoader = new THREE.GLTFLoader();
+    const gltfLoader = new GLTFLoader();
     
   gltfLoader.load(item.path, gltf => {
     const model = gltf.scene;
