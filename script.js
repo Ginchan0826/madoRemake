@@ -508,6 +508,7 @@ document.addEventListener("DOMContentLoaded", () => {
     animate();
 
     function containerAspect() {
+    　const container = document.getElementById("three-container");
       const w = container.clientWidth || 800;
       const h = container.clientHeight || 600;
       return w / h;
