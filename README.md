@@ -1,2 +1,2 @@
-# madoRemake
-2025C35プロ演完成版
+# kagu
+https://e22c1049.github.io/kagu/

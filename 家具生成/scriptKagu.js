@@ -24,8 +24,6 @@ const furnList = document.getElementById('furnList');
 const partsList = document.getElementById('parts');
 const current = document.getElementById('current');
 const btnReset = document.getElementById('btnReset');
-const btnExport = document.getElementById('btnExport');
-const importJson = document.getElementById('importJson');
 const uiColor = document.getElementById('uiColor');
 const btnApplyColor = document.getElementById('btnApplyColor');
 const btnIsolate = document.getElementById('btnIsolate');
@@ -121,7 +119,7 @@ viewport.appendChild(labelRenderer.domElement);
 function makeLabel(axis) {
   const el = document.createElement('div');
   el.className = `dimLabel dim-${axis}`;
-  el.innerHTML = `<span class="value">—</span><span class="unit">m</span>`;
+  el.innerHTML = `<span class="value">—</span><span class="unit">cm</span>`;
   const wrap = document.createElement('div');
   wrap.style.position = 'absolute';
   wrap.appendChild(el);
@@ -139,6 +137,17 @@ const GUIDE_THICK = 0.010;
 const GUIDE_OFFSET = 0.05;
 const HEAD_BASE_H = 1;
 const HEAD_BASE_R = 0.10;
+
+// 単位：Three.js(シーン)は m、UI/保存は cm
+const CM_PER_M = 100;
+const toCm = (m) => m * CM_PER_M;
+const toM = (cm) => cm / CM_PER_M;
+const fmtCm = (v) => {
+  // 120, 120.5 など見やすい形に
+  const r = Math.round(v * 10) / 10;
+  return (Number.isInteger(r) ? String(r) : r.toFixed(1));
+};
+
 
 function makeDimGuide(color, axis) {
   const g = new THREE.Group();
@@ -243,14 +252,31 @@ function worldToScreen(obj) {
 function loadPresets() {
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return data && Array.isArray(data.items) ? data.items : [];
+    if (!data || !Array.isArray(data.items)) return [];
+
+    // version 1: size が m 保存（旧仕様）→ version 2: cm 保存（新仕様）
+    const v = data.version ?? 1;
+    if (v === 1) {
+      const migrated = data.items.map((p) => ({
+        ...p,
+        size: p.size ? {
+          x: toCm(Number(p.size.x) || 0),
+          y: toCm(Number(p.size.y) || 0),
+          z: toCm(Number(p.size.z) || 0),
+        } : p.size
+      }));
+      // 自動移行して保存し直す
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, items: migrated }));
+      return migrated;
+    }
+    return data.items;
   } catch {
     return [];
   }
 }
 
 function savePresets(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: list }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, items: list }));
 }
 
 function renderPresetList() {
@@ -295,9 +321,9 @@ async function applyPresetToEditor(preset) {
   await selectFurniture(base, btnEl);
 
   if (sizeX && sizeY && sizeZ) {
-    sizeX.value = (preset.size?.x ?? 1).toFixed(2);
-    sizeY.value = (preset.size?.y ?? 1).toFixed(2);
-    sizeZ.value = (preset.size?.z ?? 1).toFixed(2);
+    sizeX.value = fmtCm(Number(preset.size?.x ?? 120));
+    sizeY.value = fmtCm(Number(preset.size?.y ?? 75));
+    sizeZ.value = fmtCm(Number(preset.size?.z ?? 60));
     applySize();
   }
 
@@ -367,10 +393,14 @@ function updateBBoxAndLabels(skipInputSync = false) {
     centerV.set(0, 0, 0);
   }
 
-  // 寸法（数値と入力欄）
-  const sx = sizeV.x.toFixed(2);
-  const sy = sizeV.y.toFixed(2);
-  const sz = sizeV.z.toFixed(2);
+  // 寸法（数値と入力欄）: 表示は cm（内部は m）
+  const sxCm = toCm(sizeV.x);
+  const syCm = toCm(sizeV.y);
+  const szCm = toCm(sizeV.z);
+
+  const sx = fmtCm(sxCm);
+  const sy = fmtCm(syCm);
+  const sz = fmtCm(szCm);
 
   labelX.el.querySelector('.value').textContent = sx;
   labelY.el.querySelector('.value').textContent = sy;
@@ -429,9 +459,9 @@ function updateBBoxAndLabels(skipInputSync = false) {
 function applySize() {
   if (!root) return;
 
-  const targetX = parseFloat(sizeX.value) || 0;
-  const targetY = parseFloat(sizeY.value) || 0;
-  const targetZ = parseFloat(sizeZ.value) || 0;
+  const targetX = toM(parseFloat(sizeX.value) || 0);
+  const targetY = toM(parseFloat(sizeY.value) || 0);
+  const targetZ = toM(parseFloat(sizeZ.value) || 0);
 
   bbox.setFromObject(root);
   bbox.getSize(sizeV);
@@ -484,8 +514,19 @@ async function loadModel(urlRaw) {
     root = gltf.scene;
     scene.add(root);
 
+    // 変更後（★ 追加部分だけがポイント）
     root.traverse((o) => {
       if (o.isMesh) {
+
+        // ★ ここを追加：メッシュごとにマテリアルをクローンして共有を切る
+        if (o.material) {
+          if (Array.isArray(o.material)) {
+            o.material = o.material.map((mtl) => mtl.clone());
+          } else {
+            o.material = o.material.clone();
+          }
+        }
+
         nodes.push(o);
         const m = stdMat(o);
         initialState[o.uuid] = {
@@ -495,6 +536,7 @@ async function loadModel(urlRaw) {
         };
       }
     });
+
 
     // カメラ合わせ
     const b = new THREE.Box3().setFromObject(root);
@@ -530,43 +572,7 @@ btnReset.addEventListener('click', () => {
   updateBBoxAndLabels();
 });
 
-btnExport.addEventListener('click', () => {
-  const data = nodes.map((n) => {
-    const m = stdMat(n);
-    return {
-      uuid: n.uuid,
-      name: n.name || '',
-      visible: n.visible,
-      material: m ? { color: m.color?.getHex?.() ?? null } : null
-    };
-  });
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'furniture-config.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
 
-importJson.addEventListener('change', async (e) => {
-  const f = e.target.files?.[0];
-  if (!f) return;
-  const text = await f.text();
-  let data = [];
-  try { data = JSON.parse(text); } catch { alert('JSONの読み込みに失敗しました'); return; }
-  const map = new Map(data.map((d) => [d.uuid, d]));
-  nodes.forEach((n) => {
-    const d = map.get(n.uuid); if (!d) return;
-    n.visible = !!d.visible;
-    const m = stdMat(n);
-    if (m && d.material && d.material.color != null) {
-      m.color.setHex(d.material.color);
-      m.needsUpdate = true;
-    }
-  });
-  refreshPartsList();
-  updateBBoxAndLabels(true);
-});
 
 btnIsolate.addEventListener('click', () => {
   if (!selected) return;
@@ -636,9 +642,9 @@ if (btnSavePreset) {
     }
 
     const size = {
-      x: parseFloat(sizeX.value) || 1,
-      y: parseFloat(sizeY.value) || 1,
-      z: parseFloat(sizeZ.value) || 1
+      x: parseFloat(sizeX.value) || 120,
+      y: parseFloat(sizeY.value) || 75,
+      z: parseFloat(sizeZ.value) || 60
     };
 
     const color = uiColor.value || '#8a5a2b';

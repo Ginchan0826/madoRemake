@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>間取りめいく | ポータル</title>
+    <style>
+        :root {
+            --tab-h: 56px;
+            --bg: #0f172a;
+            /* 上部バー */
+            --fg: #e5e7eb;
+            --accent: #38bdf8;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            background: #111827;
+            color: #e5e7eb;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        }
+
+        /* Top bar */
+        .topbar {
+            height: var(--tab-h);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            background: linear-gradient(180deg, #0b1220, #0a0f1c);
+            border-bottom: 1px solid #1f2937;
+        }
+
+        .brand {
+            font-weight: 700;
+            letter-spacing: .02em;
+            color: #cbd5e1;
+            margin-right: 12px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 6px;
+        }
+
+        .tab {
+            appearance: none;
+            border: 1px solid #263041;
+            background: #0f172a;
+            color: var(--fg);
+            border-radius: 10px;
+            padding: 8px 14px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all .15s ease;
+            line-height: 1;
+        }
+
+        .tab[aria-selected="true"] {
+            border-color: #334155;
+            color: white;
+            outline: 0;
+            background: #0b1324;
+            box-shadow: inset 0 0 0 1px #334155, 0 0 0 1px #0b1324;
+        }
+
+        .tab:focus-visible {
+            outline: 2px solid var(--accent);
+        }
+
+        /* Workspace */
+        .workspace {
+            position: fixed;
+            inset: var(--tab-h) 0 0 0;
+            display: grid;
+        }
+
+        .panel {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: none;
+            /* toggle */
+            background: #0b0f1a;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        /* 小さなヘルプ */
+        .hint {
+            margin-left: auto;
+            font-size: 12px;
+            color: #a1a1aa;
+            opacity: .9;
+        }
+
+        @media (max-width: 640px) {
+            .brand {
+                display: none;
+            }
+
+            .hint {
+                display: none;
+            }
+
+            .tab {
+                padding: 8px 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="topbar" role="tablist" aria-label="ページ切替">
+        <div class="brand">間取りめいく</div>
+
+        <div class="tabs">
+            <!-- 左に「間取り図生成」 / 右に「家具生成」 -->
+            <button id="tab-floor" class="tab" role="tab" aria-controls="panel-floor"
+                aria-selected="true">間取り図生成</button>
+            <button id="tab-furniture" class="tab" role="tab" aria-controls="panel-furniture"
+                aria-selected="false">家具生成</button>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <!-- 間取り図生成：既存 index.html をそのまま表示 -->
+        <iframe id="panel-floor" class="panel active" role="tabpanel" title="間取り図生成"
+            src="./間取り図/indexMadori.html"></iframe>
+
+        <!-- 家具生成：これまでの家具ページを表示（ファイル名は必要に応じて変更） -->
+        <iframe id="panel-furniture" class="panel" role="tabpanel" title="家具生成" src="./家具生成/indexKagu.html"></iframe>
+    </main>
+
+    <script>
+        // シンプルなタブ切替（ARIA対応）
+        const tabs = [
+            { btn: document.getElementById('tab-floor'), panel: document.getElementById('panel-floor') },
+            { btn: document.getElementById('tab-furniture'), panel: document.getElementById('panel-furniture') },
+        ];
+
+        function activate(idx) {
+            tabs.forEach((t, i) => {
+                const active = i === idx;
+                t.btn.setAttribute('aria-selected', String(active));
+                t.panel.classList.toggle('active', active);
+            });
+            // フォーカスをタブに戻すと操作感が良い
+            tabs[idx].btn.focus({ preventScroll: true });
+        }
+
+        tabs[0].btn.addEventListener('click', () => activate(0));
+        tabs[1].btn.addEventListener('click', () => activate(1));
+
+        // キーボード操作（←→で移動、Enter/Spaceで決定）
+        document.addEventListener('keydown', (e) => {
+            const idx = tabs.findIndex(t => t.btn.getAttribute('aria-selected') === 'true');
+            if (e.key === 'ArrowRight') { e.preventDefault(); activate((idx + 1) % tabs.length); }
+            if (e.key === 'ArrowLeft') { e.preventDefault(); activate((idx - 1 + tabs.length) % tabs.length); }
+            if (e.key === 'Home') { e.preventDefault(); activate(0); }
+            if (e.key === 'End') { e.preventDefault(); activate(tabs.length - 1); }
+        });
+    </script>
+</body>
+
+</html>
