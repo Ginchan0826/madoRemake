@@ -1,14 +1,7 @@
-console.log("GLTFLoader =", THREE.GLTFLoader);
-console.log("THREE", THREE);
-console.log("THREE.OrbitControls", THREE.OrbitControls);
-console.log("draw3D", typeof draw3D);
-
-//latestJson
-
 
 //let accessToken = null;
-if (typeof window.accessTok === "undefined") {
-  window.accessTok = null;
+if (typeof window.accessToken === "undefined") {
+  window.accessToken = null;
 }
 
 //let latestJson = null;
@@ -19,11 +12,11 @@ if (typeof window.latestJson === "undefined") {
 
 /* Googleログイン */
 function handleCredentialResponse(response) {
-  requestwindow.accessTok();
+  requestwindow.accessToken();
 }
 window.handleCredentialResponse = handleCredentialResponse;
 
-function requestAccessToken() {
+function requestaccessToken() {
   google.accounts.oauth2.initTokenClient({
     client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
     scope: 'https://www.googleapis.com/auth/drive.file',
@@ -31,7 +24,7 @@ function requestAccessToken() {
       window.accessToken = tokenResponse.access_token;
       updateFileSelect();
     }
-  }).requestwindow.accessTok();
+  }).requestwindow.accessToken();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -412,6 +405,12 @@ document.addEventListener("DOMContentLoaded", () => {
     renderer.setSize(container.clientWidth, container.clientHeight || 600);
     renderer.setClearColor(0xffffff, 1);
     container.appendChild(renderer.domElement);
+    renderer.domElement.__threeObj = {
+     scene,
+     camera,
+     renderer
+    };
+
 
     /* controls */
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -522,6 +521,8 @@ document.addEventListener("DOMContentLoaded", () => {
     dirLight.position.set(5, 10, 7);
     scene.add(dirLight);
     scene.add(new THREE.AmbientLight(0x404040));
+    registerThreeContext(scene, camera, renderer);
+
 
     /* animate */
     function animate() {
@@ -577,7 +578,7 @@ function createFurnitureButtons() {
 
 /* load furniture */
 function loadFurniture(item) {
-    const gltfLoader = new THREE.GLTFLoader();
+    const gltfLoader = new GLTFLoader();
     
   gltfLoader.load(item.path, gltf => {
     const model = gltf.scene;
