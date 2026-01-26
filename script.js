@@ -1,9 +1,10 @@
 console.log("GLTFLoader =", THREE.GLTFLoader);
 console.log("THREE", THREE);
-console.log("OrbitControls", OrbitControls);
+console.log("THREE.OrbitControls", THREE.OrbitControls
+);
 console.log("draw3D", typeof draw3D);
 
-//OrbitControls
+//THREE.OrbitControl
 
 
 //let accessToken = null;
