@@ -345,12 +345,56 @@ function onPointerMove(event) {
   if (!isDragging || !selectedObject) return;
   updatePointerFromEvent(event);
   raycaster.setFromCamera(pointer, camera);
+  
   if (raycaster.ray.intersectPlane(dragPlane, dragIntersectPoint)) {
     const newPos = new THREE.Vector3().copy(dragIntersectPoint).add(dragOffset);
-    const gridStep = 1;
+    
+    // スナップ（10cm単位）
+    const gridStep = 0.1; 
     selectedObject.position.x = Math.round(newPos.x / gridStep) * gridStep;
     selectedObject.position.z = Math.round(newPos.z / gridStep) * gridStep;
+
+    // 移動するたびに衝突をチェック
+    checkCollisions();
   }
+}
+
+// 2. 衝突判定関数の追加
+function checkCollisions() {
+    if (!selectedObject) return;
+
+    // 選択中家具の範囲を取得
+    const selectedBox = new THREE.Box3().setFromObject(selectedObject);
+    let isColliding = false;
+
+    // シーン内の物体（壁・他の家具）をループで確認
+    scene.traverse((other) => {
+        // 自分、床、ライトは判定から除外
+        if (other === selectedObject || !other.isMesh || other.name === 'floor') return;
+
+        const otherBox = new THREE.Box3().setFromObject(other);
+        
+        // 重なっているか判定
+        if (selectedBox.intersectsBox(otherBox)) {
+            isColliding = true;
+        }
+    });
+
+    // 重なっていたら赤く光らせる（エミッシブ色を変更）
+    selectedObject.traverse((node) => {
+        if (node.isMesh && node.material) {
+            const mats = Array.isArray(node.material) ? node.material : [node.material];
+            mats.forEach(m => {
+                if (isColliding) {
+                    m.emissive.setHex(0xff0000); // 警告の赤
+                    m.emissiveIntensity = 0.6;
+                } else {
+                    m.emissive.setHex(0x000000); // 通常
+                    m.emissiveIntensity = 0;
+                }
+            });
+        }
+    });
 }
 
 function onPointerUp() {
