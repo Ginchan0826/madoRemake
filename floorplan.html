@@ -7,20 +7,20 @@
   <title>間取り分析＆3D表示</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- THREE.js（r128） -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-  <!-- OrbitControls -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
-  <!-- GLTFLoader -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-
   <!-- Google Sign-In -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
+  <!-- THREE.js をインラインで読み込み -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.149.0/examples/jsm/"
+      }
+    }
+  </script>
   <main class="appMain">
     <div class="layout3">
       <!-- Left -->
@@ -128,7 +128,7 @@
     </div>
   </main>
 
-  <script src="script.js"></script>
+  <script type="module" src="script.js"></script>
 
 </body>
 
