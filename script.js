@@ -399,16 +399,16 @@ document.addEventListener("DOMContentLoaded", () => {
     camera.position.set(5, 5, 5);
 
     /* renderer */
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer3D = new THREE.WebGLRenderer({ antialias: true });
     const container = document.getElementById("three-container");
     container.innerHTML = "";
-    renderer.setSize(container.clientWidth, container.clientHeight || 600);
-    renderer.setClearColor(0xffffff, 1);
-    container.appendChild(renderer.domElement);
-    renderer.domElement.__threeObj = {
+    renderer3D.setSize(container.clientWidth, container.clientHeight || 600);
+    renderer3D.setClearColor(0xffffff, 1);
+    container.appendChild(renderer3D.domElement);
+    renderer3D.domElement.__threeObj = {
      scene,
      camera,
-     renderer
+     renderer3D
     };
 
 
@@ -521,14 +521,14 @@ document.addEventListener("DOMContentLoaded", () => {
     dirLight.position.set(5, 10, 7);
     scene.add(dirLight);
     scene.add(new THREE.AmbientLight(0x404040));
-    registerThreeContext(scene, camera, renderer);
+    registerThreeContext(scene, camera, renderer3D);
 
 
     /* animate */
     function animate() {
       requestAnimationFrame(animate);
       controls.update();
-      renderer.render(scene, camera);
+      renderer3D.render(scene, camera);
     }
     animate();
 
