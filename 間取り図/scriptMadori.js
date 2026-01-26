@@ -347,7 +347,7 @@ function onPointerMove(event) {
   raycaster.setFromCamera(pointer, camera);
   if (raycaster.ray.intersectPlane(dragPlane, dragIntersectPoint)) {
     const newPos = new THREE.Vector3().copy(dragIntersectPoint).add(dragOffset);
-    const gridStep = 0.05;
+    const gridStep = 0.3;
     selectedObject.position.x = Math.round(newPos.x / gridStep) * gridStep;
     selectedObject.position.z = Math.round(newPos.z / gridStep) * gridStep;
   }
