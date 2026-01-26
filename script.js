@@ -414,7 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
     container.appendChild(renderer.domElement);
 
     /* controls */
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2;
 
