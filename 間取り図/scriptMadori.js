@@ -363,33 +363,46 @@ function onPointerMove(event) {
 function checkCollisions() {
     if (!selectedObject) return;
 
-    // 選択中家具の範囲を取得
+    // 1. 選択中家具の境界ボックスを取得
     const selectedBox = new THREE.Box3().setFromObject(selectedObject);
+    
+    // 床との微細な接触による誤判定を防ぐため、判定ボックスを上下方向にわずかに縮小（0.01m = 1cm）
+    // これにより、床に接していても「めり込み」がなければ衝突とみなされません
+    selectedBox.min.y += 0.01; 
+
     let isColliding = false;
 
-    // シーン内の物体（壁・他の家具）をループで確認
+    // 2. シーン内のオブジェクトを走査
     scene.traverse((other) => {
-        // 自分、床、ライトは判定から除外
-        if (other === selectedObject || !other.isMesh || other.name === 'floor') return;
+        // 判定を除外する条件
+        if (
+            other === selectedObject ||      // 自分自身
+            !other.isMesh ||                 // メッシュ以外
+            other.userData.isFloor ||        // 床フラグ（推奨）
+            other.geometry.type === "PlaneGeometry" || // 平面ジオメトリ（床）
+            other.parent instanceof THREE.Group && other.parent.type === "TransformControls" // ギズモ
+        ) return;
 
         const otherBox = new THREE.Box3().setFromObject(other);
         
-        // 重なっているか判定
+        // 3. 衝突判定
         if (selectedBox.intersectsBox(otherBox)) {
             isColliding = true;
         }
     });
 
-    // 重なっていたら赤く光らせる（エミッシブ色を変更）
+    // 4. 色の反映
     selectedObject.traverse((node) => {
         if (node.isMesh && node.material) {
             const mats = Array.isArray(node.material) ? node.material : [node.material];
             mats.forEach(m => {
                 if (isColliding) {
-                    m.emissive.setHex(0xff0000); // 警告の赤
+                    // 赤く光らせる（警告）
+                    m.emissive.setHex(0xff0000);
                     m.emissiveIntensity = 0.6;
                 } else {
-                    m.emissive.setHex(0x000000); // 通常
+                    // 通常の状態に戻す
+                    m.emissive.setHex(0x000000);
                     m.emissiveIntensity = 0;
                 }
             });
