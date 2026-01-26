@@ -363,43 +363,39 @@ function onPointerMove(event) {
 function checkCollisions() {
     if (!selectedObject) return;
 
-    // 1. 選択中家具の境界ボックスを取得
     const selectedBox = new THREE.Box3().setFromObject(selectedObject);
     
-    // 床との微細な接触を無視するため、判定ボックスの下端を3cm上げる
-    selectedBox.min.y += 0.03; 
+    // 家具の底面が床に接しているため、判定ボックスをほんの少し（1cm）だけ浮かせる
+    selectedBox.min.y += 0.01; 
 
     let isColliding = false;
 
-    // 2. シーン内のオブジェクトを走査
     scene.traverse((other) => {
-        // --- 判定の徹底除外 ---
-        if (
-            !other.isMesh || 
-            other.name === "FLOOR_MESH" ||    // 名前で床を除外
-            other.geometry.type === "PlaneGeometry" || // 形状で床を除外
-            other === selectedObject ||       // 自分自身を除外
-            selectedObject.attach === undefined && selectedObject.children.includes(other) || // 自分の子要素を除外
-            other.parent?.type === "TransformControls" // ギズモを除外
-        ) return;
+        // 【重要】isObstacle フラグを持っているメッシュ以外はすべて無視！
+        if (!other.isMesh || !other.userData.isObstacle) return;
 
-        // 相手のボックスを取得
+        // 自分自身（selectedObjectの子要素など）を誤検知しないためのチェック
+        let isSelf = false;
+        other.traverseAncestors((ancestor) => {
+            if (ancestor === selectedObject) isSelf = true;
+        });
+        if (isSelf) return;
+
         const otherBox = new THREE.Box3().setFromObject(other);
         
-        // 3. 衝突判定を実行
         if (selectedBox.intersectsBox(otherBox)) {
             isColliding = true;
         }
     });
 
-    // 4. 色の反映（Emissiveを制御）
+    // --- 色の反映（変更なし） ---
     selectedObject.traverse((node) => {
         if (node.isMesh && node.material) {
             const mats = Array.isArray(node.material) ? node.material : [node.material];
             mats.forEach(m => {
                 if (isColliding) {
                     m.emissive.setHex(0xff0000);
-                    m.emissiveIntensity = 0.6;
+                    m.emissiveIntensity = 0.5;
                 } else {
                     m.emissive.setHex(0x000000);
                     m.emissiveIntensity = 0;
@@ -1248,6 +1244,11 @@ function initSceneWithFloorplan(predictions, imageWidth, imageHeight) {
     }
 
     const mesh = new THREE.Mesh(geometry, material);
+
+    const targetClasses = ["wall", "door", "window", "closet", "fusuma", "glass door"];
+    if (targetClasses.includes(pred.class)) {
+    mesh.userData.isObstacle = true; // 「障害物」フラグを立てる
+    }
 
 
     mesh.position.x = (pred.x - imageWidth / 2) * scale;
