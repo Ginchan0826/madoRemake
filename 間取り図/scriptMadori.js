@@ -366,42 +366,41 @@ function checkCollisions() {
     // 1. 選択中家具の境界ボックスを取得
     const selectedBox = new THREE.Box3().setFromObject(selectedObject);
     
-    // 床との微細な接触による誤判定を防ぐため、判定ボックスを上下方向にわずかに縮小（0.01m = 1cm）
-    // これにより、床に接していても「めり込み」がなければ衝突とみなされません
-    selectedBox.min.y += 0.01; 
+    // 床との微細な接触を無視するため、判定ボックスの下端を3cm上げる
+    selectedBox.min.y += 0.03; 
 
     let isColliding = false;
 
     // 2. シーン内のオブジェクトを走査
     scene.traverse((other) => {
-        // 判定を除外する条件
+        // --- 判定の徹底除外 ---
         if (
-            other === selectedObject ||      // 自分自身
-            !other.isMesh ||                 // メッシュ以外
-            other.userData.isFloor ||        // 床フラグ（推奨）
-            other.geometry.type === "PlaneGeometry" || // 平面ジオメトリ（床）
-            other.parent instanceof THREE.Group && other.parent.type === "TransformControls" // ギズモ
+            !other.isMesh || 
+            other.name === "FLOOR_MESH" ||    // 名前で床を除外
+            other.geometry.type === "PlaneGeometry" || // 形状で床を除外
+            other === selectedObject ||       // 自分自身を除外
+            selectedObject.attach === undefined && selectedObject.children.includes(other) || // 自分の子要素を除外
+            other.parent?.type === "TransformControls" // ギズモを除外
         ) return;
 
+        // 相手のボックスを取得
         const otherBox = new THREE.Box3().setFromObject(other);
         
-        // 3. 衝突判定
+        // 3. 衝突判定を実行
         if (selectedBox.intersectsBox(otherBox)) {
             isColliding = true;
         }
     });
 
-    // 4. 色の反映
+    // 4. 色の反映（Emissiveを制御）
     selectedObject.traverse((node) => {
         if (node.isMesh && node.material) {
             const mats = Array.isArray(node.material) ? node.material : [node.material];
             mats.forEach(m => {
                 if (isColliding) {
-                    // 赤く光らせる（警告）
                     m.emissive.setHex(0xff0000);
                     m.emissiveIntensity = 0.6;
                 } else {
-                    // 通常の状態に戻す
                     m.emissive.setHex(0x000000);
                     m.emissiveIntensity = 0;
                 }
@@ -1060,7 +1059,7 @@ function initSceneWithFloorplan(predictions, imageWidth, imageHeight) {
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
 
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(floorX, 0, floorZ);
+  floor.name = "FLOOR_MESH";
   scene.add(floor);
 
   // --- カメラ調整（従来の「平べったい」を避けるロジックは維持） ---
