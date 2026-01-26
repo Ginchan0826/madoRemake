@@ -1,15 +1,23 @@
 console.log("GLTFLoader =", THREE.GLTFLoader);
+console.log("THREE", THREE);
+console.log("OrbitControls", OrbitControls);
+console.log("draw3D", typeof draw3D);
+
 
 //let accessToken = null;
-if (typeof window.accessToken === "undefined") {
-  window.accessToken = null;
+if (typeof window.accessTok === "undefined") {
+  window.accessTok = null;
 }
 
-let latestJson = null;
+//let latestJson = null;
+if (typeof window.latestJson === "undefined") {
+  window.latestJson = null;
+}
+
 
 /* Googleログイン */
 function handleCredentialResponse(response) {
-  requestAccessToken();
+  requestwindow.accessTok();
 }
 window.handleCredentialResponse = handleCredentialResponse;
 
@@ -18,10 +26,10 @@ function requestAccessToken() {
     client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
     scope: 'https://www.googleapis.com/auth/drive.file',
     callback: (tokenResponse) => {
-      window.accessToken = tokenResponse.access_token;
+      window.accessToke = tokenResponse.access_token;
       updateFileSelect();
     }
-  }).requestAccessToken();
+  }).requestwindow.accessTok();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -287,7 +295,8 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (mode === "extra") result = await runRoboflow(API.extra, selectedFile);
       else result = await runAllModels(selectedFile);
 
-      latestJson = result;
+      window.latestJson
+ = result;
       resultPre.textContent = JSON.stringify(result, null, 2);
 
       openContainer(resultContainer);
@@ -310,13 +319,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* Google Drive 保存 */
   document.getElementById("saveBtn").addEventListener("click", () => {
-    if (!accessToken || !latestJson) return alert("ログインまたは解析が必要です");
+    if (!window.accessToke || !window.latestJson
+
+    ) return alert("ログインまたは解析が必要です");
 
     const filename = filenameInput.value.trim();
     if (!filename) return alert("保存名を入力してください");
 
     const metadata = { name: `${filename}.json`, mimeType: "application/json" };
-    const file = new Blob([JSON.stringify(latestJson)], { type: "application/json" });
+    const file = new Blob([JSON.stringify(window.latestJson
+
+    )], { type: "application/json" });
 
     const form = new FormData();
     form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
@@ -324,7 +337,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
       method: "POST",
-      headers: new Headers({ Authorization: "Bearer " + accessToken }),
+      headers: new Headers({ Authorization: "Bearer " + window.accessToke
+       }),
       body: form
     })
       .then(() => {
@@ -337,14 +351,16 @@ document.addEventListener("DOMContentLoaded", () => {
   /* Drive 読み込み */
   document.getElementById("loadBtn").addEventListener("click", () => {
     const fileId = fileSelect.value;
-    if (!accessToken || !fileId) return alert("ログインまたはファイルを選択してください");
+    if (!window.accessToke || !fileId) return alert("ログインまたはファイルを選択してください");
 
     fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-      headers: new Headers({ Authorization: "Bearer " + accessToken })
+      headers: new Headers({ Authorization: "Bearer " + window.accessToke
+       })
     })
       .then(res => res.json())
       .then(data => {
-        latestJson = data;
+        window.latestJson
+ = data;
         resultPre.textContent = JSON.stringify(data, null, 2);
         draw3D(data.predictions, data.image.width, data.image.height);
       })
@@ -354,15 +370,20 @@ document.addEventListener("DOMContentLoaded", () => {
   /* Drive 削除 */
   document.getElementById("deleteBtn").addEventListener("click", () => {
     const fileId = fileSelect.value;
-    if (!accessToken || !fileId) return;
+    if (!window.accessToke || !fileId) return;
 
     if (!confirm("本当に削除しますか？")) return;
 
     fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
       method: "DELETE",
-      headers: new Headers({ Authorization: "Bearer " + accessToken })
+      headers: new Headers({ Authorization: "Bearer " + window.accessToke
+       })
     }).then(() => updateFileSelect());
   });
+
+
+}); // DOMContentLoaded end
+
   /* =========================================================
      3D描画（床を base から生成、オブジェクト高さ/厚み調整）
      ========================================================= */
@@ -516,7 +537,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-}); // DOMContentLoaded end
+
 /* =========================================================
    家具配置・ドラッグ操作（scriptMadori.js 統合部）
    ========================================================= */
