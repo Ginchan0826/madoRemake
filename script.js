@@ -3,6 +3,8 @@ console.log("THREE", THREE);
 console.log("OrbitControls", OrbitControls);
 console.log("draw3D", typeof draw3D);
 
+//OrbitControls
+
 
 //let accessToken = null;
 if (typeof window.accessTok === "undefined") {
@@ -412,7 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
     container.appendChild(renderer.domElement);
 
     /* controls */
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2;
 
