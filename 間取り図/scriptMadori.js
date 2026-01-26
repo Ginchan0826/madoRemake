@@ -347,8 +347,9 @@ function onPointerMove(event) {
   raycaster.setFromCamera(pointer, camera);
   if (raycaster.ray.intersectPlane(dragPlane, dragIntersectPoint)) {
     const newPos = new THREE.Vector3().copy(dragIntersectPoint).add(dragOffset);
-    selectedObject.position.x = newPos.x;
-    selectedObject.position.z = newPos.z;
+    const gridStep = 0.05;
+    selectedObject.position.x = Math.round(newPos.x / gridStep) * gridStep;
+    selectedObject.position.z = Math.round(newPos.z / gridStep) * gridStep;
   }
 }
 
@@ -809,6 +810,24 @@ document.addEventListener('DOMContentLoaded', () => {
       selectObject(null);
     });
   }
+  // キーボード操作の追加
+document.addEventListener('keydown', (e) => {
+  if (!selectedObject) return;
+
+  // Rキーで90度回転
+  if (e.key.toLowerCase() === 'r') {
+    selectedObject.rotation.y += Math.PI / 2;
+    if (placeStatusEl) {
+      const label = selectedObject.userData?.label || '箱';
+      placeStatusEl.textContent = `選択中：${label} (回転済み)`;
+    }
+  }
+
+  // DeleteキーまたはBackSpaceキーで削除
+  if (e.key === 'Delete' || (e.key === 'Backspace' && e.metaKey)) {
+    moveDeleteBtn.click();
+  }
+});
 
   renderFurnitureLibrary();
   window.addEventListener('storage', (e) => {
