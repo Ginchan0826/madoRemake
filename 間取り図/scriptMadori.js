@@ -60,30 +60,21 @@ let libraryListEl = null;
 const UNIT_SCALE = 1.0;
 
 /* =========================
-   Google Drive 認証
-   ========================= */
-let tokenClient;
-
-function initGoogleAuth() {
-  tokenClient = google.accounts.oauth2.initCodeClient({
-    client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
-    scope: 'https://www.googleapis.com/auth/drive.file',
-    ux_mode: 'redirect',
-
-    // ⭐ ES moduleでも絶対安全
-    callback: (resp) => {
-      accessToken = resp.access_token;
-      console.log('アクセストークン取得済');
-      updateFileSelect();
-    }
-  });
-}
-
-function requestAccessToken() {
-  tokenClient.requestCode();
-}
-
-window.addEventListener('load', initGoogleAuth);
+Google Drive 認証 
+========================= */ 
+function handleCredentialResponse(_) {
+   console.log('Googleログイン成功'); requestAccessToken();
+   }
+    window.handleCredentialResponse = handleCredentialResponse; 
+    function requestAccessToken() {
+       google.accounts.oauth2 .initTokenClient({ 
+        client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
+         scope: 'https://www.googleapis.com/auth/drive.file', callback: (tokenResponse) => 
+          { 
+          accessToken = tokenResponse.access_token; console.log('アクセストークン取得済'); updateFileSelect(); 
+        } 
+      }) .requestAccessToken();
+     }
 
 
 
