@@ -62,25 +62,51 @@ const UNIT_SCALE = 1.0;
 /* =========================
    Google Drive 認証
    ========================= */
+/* =========================
+   Google Drive 認証（GitHub Pages対応版）
+   ========================= */
+
+let tokenClient;
+let accessToken = null;
+
 function handleCredentialResponse(_) {
   console.log('Googleログイン成功');
   requestAccessToken();
 }
 window.handleCredentialResponse = handleCredentialResponse;
 
-function requestAccessToken() {
-  google.accounts.oauth2
-    .initTokenClient({
-      client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
-      scope: 'https://www.googleapis.com/auth/drive.file',
-      callback: (tokenResponse) => {
-        accessToken = tokenResponse.access_token;
-        console.log('アクセストークン取得済');
-        updateFileSelect();
-      }
-    })
-    .requestAccessToken();
+
+/* 初期化（redirect方式） */
+function initGoogleAuth() {
+  tokenClient = google.accounts.oauth2.initCodeClient({
+    client_id: '479474446026-kej6f40kvfm6dsuvfeo5d4fm87c6god4.apps.googleusercontent.com',
+    scope: 'https://www.googleapis.com/auth/drive.file',
+
+    // ⭐⭐ これが超重要 ⭐⭐
+    ux_mode: 'redirect',
+
+    callback: handleTokenResponse
+  });
 }
+
+
+/* トークン取得後 */
+function handleTokenResponse(resp) {
+  accessToken = resp.access_token;
+  console.log('アクセストークン取得済');
+  updateFileSelect();
+}
+
+
+/* ログイン実行 */
+function requestAccessToken() {
+  tokenClient.requestCode();
+}
+
+
+/* ページロード時に初期化 */
+window.addEventListener('load', initGoogleAuth);
+
 
 /* =========================
    localStorage: 家具プリセット取得
