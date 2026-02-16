@@ -289,6 +289,14 @@ body {
   /* 黒に寄せて視認性UP（必要なら白にもできます） */
 }
 
+.threeContainer canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  /* pointer系(ドラッグ)を安定させる */
+}
+
 /* Footer */
 .appFooter {
   border-top: 1px solid var(--line);
